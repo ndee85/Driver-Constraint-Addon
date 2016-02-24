@@ -14,6 +14,7 @@ Here is a small video presentation:
 [Youtube Video](https://www.youtube.com/watch?v=IFLhvW-lJVM)
 
 You like this addon and want to thank me. This could be a way ;-)
+
 [![](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=H5ER72A5EUMYY)
 
 
