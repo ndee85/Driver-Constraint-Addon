@@ -14,7 +14,7 @@ Here is a small video presentation:
 [Youtube Video](https://youtu.be/OV0gcfXQgAQ)
 
 #Download
-[Driver Constraint v1.2.0](releases/Driver_Constraint_v1.2.0.zip)
+[Driver Constraint v1.2.0](releases/Driver_Constraint_v1.2.0.zip?raw=true)
 
 #Donate
 You like this addon and want to thank me. This could be a way ;-)
