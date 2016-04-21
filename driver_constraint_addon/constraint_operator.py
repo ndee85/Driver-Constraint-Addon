@@ -22,11 +22,90 @@ import bpy
 from math import radians,degrees
 from mathutils import Vector,Quaternion,Euler
 
+def get_prop_object(self,context,prop_name,obj):
+    wm = context.window_manager
+    
+    data = obj.data
+    bone = None
+    shape_keys = None
+    mat = obj.active_material
+    tex = None
+    modifier = None
+    scene = context.scene
+    render = scene.render
+    
+    
+    if obj.type == "MESH" and obj.data.shape_keys != None:
+        shape_keys = obj.data.shape_keys
+                    
+    if mat != None:
+        tex = mat.active_texture
+        
+    
+    ### return if propert is found in modifier
+    if len(obj.modifiers) > 0 and '"' in prop_name:
+        modifier_name = prop_name.split('"')[1]
+        if modifier_name in obj.modifiers:
+            modifier = obj.modifiers[modifier_name]
+            return modifier, "MODIFIER_PROPERTY"
+    
+    ### return if propert is found in shapekeys    
+    if shape_keys != None and '"' in prop_name:
+        shape_name = prop_name.split('"')[1]
+        if shape_name in shape_keys.key_blocks:
+            return shape_keys, "SHAPEKEY_PROPERTY"
+    
+    ### return if propert is found in bone
+    if obj.type == "ARMATURE" and '"' in prop_name and "bones" in prop_name:
+        if len(prop_name.split('"')) == 3:
+            bone_name = prop_name.split('"')[1]
+            if bone_name in obj.data.bones:
+                bone = obj.data.bones[bone_name]
+                return bone, "BONE_PROPERTY"
+        
+    ### return if propert is found in object    
+    if hasattr(obj,prop_name):
+        return obj, "OBJECT_PROPERTY"
+    
+    ### return if propert is found in object data (armature, mesh)
+    if hasattr(data,prop_name):
+        return data, "OBECT_DATA_PROPERTY"
+    
+    ### return if propert is found in material
+    if mat != None and hasattr(mat,prop_name):
+        return mat, "MATERIAL_PROPERTY"
+    
+    ### return if propert is found in texture
+    if tex != None and hasattr(tex,prop_name):
+        return tex, "TEXTURE_PROPERTY"
+    
+    ### return if propert is found in bone constraint
+    if '"' in prop_name:
+        if len(prop_name.split('"')) > 3:
+            bone_name = prop_name.split('"')[1]
+            const_name = prop_name.split('"')[3]
+            if bone_name in obj.pose.bones and const_name in obj.pose.bones[bone_name].constraints:
+                return obj.pose.bones[bone_name].constraints[const_name], "BONE_CONSTRAINT_PROPERTY"
+    
+    ### return if propert is found in object constraint
+    if '"' in prop_name and "constraint" in prop_name:
+        if len(prop_name.split('"')) == 3:
+            const_name = prop_name.split('"')[1]
+            if const_name in obj.constraints:
+                return obj.constraints[const_name], "OBJECT_CONSTRAINT_PROPERTY"
+
 class CreateDriverConstraint(bpy.types.Operator):
     #"""This Operator creates a driver for a shape and connects it to a posebone transformation"""
     bl_idname = "object.create_driver_constraint"
     bl_label = "Create Driver Constraint"
     bl_description = "This Operator creates a driver for a shape and connects it to a posebone transformation"
+    
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+    
+    def check(self,context):
+        return True
     
     def get_shapes(self,context):
         shapes = []
@@ -50,6 +129,19 @@ class CreateDriverConstraint(bpy.types.Operator):
             
         return shapes
     
+    def search_for_prop(self,context):
+        wm = context.window_manager
+        if hasattr(self,"property_type") and self.prop_data_path != "":
+            if len(context.selected_objects) > 1:
+                obj = context.selected_objects[1]
+            else:
+                obj = context.selected_objects[0]
+            
+            if get_prop_object(self,context,self.prop_data_path,obj) != None:
+                self.property_type = get_prop_object(self,context,self.prop_data_path,obj)[1]
+            else:
+                self.prop_data_path = ""    
+ 
     
     def get_property_type_items(self,context):
         if len(context.selected_objects) > 1:
@@ -69,13 +161,14 @@ class CreateDriverConstraint(bpy.types.Operator):
         items.append(("OBECT_DATA_PROPERTY","Data Property","Data Property",object_data_icon,2))
         items.append(("MATERIAL_PROPERTY","Material Property","Material Property","MATERIAL",3))
         items.append(("TEXTURE_PROPERTY","Texture Property","Texture Property","TEXTURE",4))
-#        items.append(("SCENE_PROPERTY","Scene Property","Scene Property","SCENE_DATA",5))
-#        items.append(("RENDER_PROPERTY","Render Property","Render Property","SCENE",6))
+        items.append(("BONE_PROPERTY","Bone Property","Bone Property","BONE_DATA",6))
+        items.append(("BONE_CONSTRAINT_PROPERTY","Bone Constraint Property","Bone Constraint Property","CONSTRAINT_BONE",7))
+        items.append(("OBJECT_CONSTRAINT_PROPERTY","Object Constraint Property","Object Constraint Property","CONSTRAINT",8))
         return items
     
     property_type = bpy.props.EnumProperty(name = "Mode",items=get_property_type_items, description="Set the space the bone is transformed in. Local Space recommended.")
     
-    prop_data_path = bpy.props.StringProperty(name="Property Data Path", default="")
+    prop_data_path = bpy.props.StringProperty(name="Property Data Path", default="",update=search_for_prop)
     
     shape_name = bpy.props.EnumProperty(items = get_shapes, name = "Shape", description="Select the shape you want to add a driver to.")
     get_limits_auto = bpy.props.BoolProperty(name = "Get Limits",default=True,description="This will set the limits based on the bone location/rotation/scale automatically.")
@@ -149,12 +242,9 @@ class CreateDriverConstraint(bpy.types.Operator):
             col.prop(self,"prop_min_value",text="Min Value")
             col.prop(self,"prop_max_value",text="Max Value")
             
-    def check(self,context):
-        return True
     
-    @classmethod
-    def poll(cls, context):
-        return context.active_object is not None
+    
+    
     
     def set_defaults(self,context):
         bone = context.active_pose_bone
@@ -207,52 +297,9 @@ class CreateDriverConstraint(bpy.types.Operator):
         new_shape = object.shape_key_add(name=context.active_pose_bone.name,from_mix=False)
         return new_shape.name
     
-    def get_prop_object(self,context,prop_name):
-        wm = context.window_manager
-        
-        if len(context.selected_objects) > 1:
-            obj = context.selected_objects[1]
-        else:
-            obj = context.selected_objects[0]
-        data = obj.data
-        shape_keys = None
-        mat = obj.active_material
-        tex = None
-        modifier = None
-        scene = context.scene
-        render = scene.render
-        
-        
-        if obj.type == "MESH" and obj.data.shape_keys != None:
-            shape_keys = obj.data.shape_keys
-                        
-        if mat != None:
-            tex = mat.active_texture
+
             
-        
-        if len(obj.modifiers) > 0 and '"' in prop_name:
-            modifier_name = prop_name.split('"')[1]
-            if modifier_name in obj.modifiers:
-                modifier = obj.modifiers[modifier_name]
-                return modifier, "MODIFIER_PROPERTY"
             
-        if shape_keys != None and '"' in prop_name:
-            shape_name = prop_name.split('"')[1]
-            if shape_name in shape_keys.key_blocks:
-                return shape_keys, "SHAPEKEY_PROPERTY"
-            
-        if hasattr(obj,prop_name):
-            return obj, "OBJECT_PROPERTY"
-        if hasattr(data,prop_name):
-            return data, "OBECT_DATA_PROPERTY"
-#        if hasattr(scene,prop_name):
-#            return scene, "SCENE_PROPERTY"
-#        if "." in prop_name and hasattr(render,prop_name.split(".")[1]):
-#            return render, "RENDER_PROPERTY"
-        if mat != None and hasattr(mat,prop_name):
-            return mat, "MATERIAL_PROPERTY"
-        if tex != None and hasattr(tex,prop_name):
-            return tex, "TEXTURE_PROPERTY"
             
     
     def execute(self, context):
@@ -264,72 +311,87 @@ class CreateDriverConstraint(bpy.types.Operator):
         else:
             obj = context.selected_objects[0]    
         
-        if self.property_type == "SHAPEKEY_PROPERTY":
-            shape = None
-            if self.shape_name != "CREATE_NEW_SHAPE":
-                shape = obj.data.shape_keys.key_blocks[self.shape_name]
-            else:
-                if obj.data.shape_keys == None:
-                    obj.shape_key_add(name="Basis",from_mix=False)
-                shape = obj.data.shape_keys.key_blocks[self.create_new_shape(context,obj)]
+        driver_found = False
+        for obj in context.selected_objects:
+            if obj != context.scene.objects.active or len(context.selected_objects) == 1:
             
-            curve = shape.driver_add("value")
+                if self.property_type == "SHAPEKEY_PROPERTY":
+                    shape = None
+                    if self.shape_name != "CREATE_NEW_SHAPE":
+                        shape = obj.data.shape_keys.key_blocks[self.shape_name]
+                    else:
+                        if obj.data.shape_keys == None:
+                            obj.shape_key_add(name="Basis",from_mix=False)
+                        shape = obj.data.shape_keys.key_blocks[self.create_new_shape(context,obj)]
+                    
+                    curve = shape.driver_add("value")
+                else:
+                    if get_prop_object(self,context,self.prop_data_path,obj) != None:
+                        prop_type = get_prop_object(self,context,self.prop_data_path,obj)[1]
+                        data = get_prop_object(self,context,self.prop_data_path,obj)[0]
+                        if data == obj and self.property_type == "OBECT_DATA_PROPERTY":
+                            data = data.data
+                        if prop_type in ["MODIFIER_PROPERTY","BONE_PROPERTY","OBJECT_CONSTRAINT_PROPERTY"]:
+                            data_path = self.prop_data_path.split(".")[1]
+                            curve = data.driver_add(data_path)    
+                        elif prop_type in ["BONE_CONSTRAINT_PROPERTY"]  :  
+                            string_elements = self.prop_data_path.split(".")
+                            data_path = string_elements[len(string_elements)-1]
+                            
+                            curve = data.driver_add(data_path)    
+                        else:    
+                            curve = data.driver_add(self.prop_data_path)
+                    else:
+                        curve = None
+                
+                curves = [curve]
+                if type(curve) == list:
+                    curves = curve
+                
+                ### create driver fcurve which defines how the value is driven
+                for curve in curves:
+                    if curve != None:
+                        driver_found = True
+                        if len(curve.driver.variables) < 1:
+                            curve_var = curve.driver.variables.new()
+                        else:
+                            curve_var = curve.driver.variables[0]
+                        
+                        if len(curve.modifiers) > 0:
+                            curve.modifiers.remove(curve.modifiers[0])
+                        curve.driver.type = "SUM"
+                        curve_var.type = "TRANSFORMS"
+                        curve_var.targets[0].id = bpy.context.active_object
+                        curve_var.targets[0].bone_target = bpy.context.active_pose_bone.name
+                        curve_var.targets[0].transform_space = self.space
+                        curve_var.targets[0].transform_type = self.type
+                        
+                        if self.type in ["ROT_X","ROT_Y","ROT_Z"]:
+                            min_value = radians(self.min_value)
+                            max_value = radians(self.max_value)
+                        else:
+                            min_value = self.min_value
+                            max_value = self.max_value
+                        
+                        delete_len = 0
+                        for point in curve.keyframe_points:
+                            delete_len += 1
+                        for i in range(delete_len):    
+                            curve.keyframe_points.remove(curve.keyframe_points[0])
+                        
+                        point_a = curve.keyframe_points.insert(min_value,self.prop_min_value)
+                        point_a.interpolation = "LINEAR"
+                        
+                        point_b = curve.keyframe_points.insert(max_value,self.prop_max_value)
+                        point_b.interpolation = "LINEAR"
+        
+        if driver_found:
+            msg = self.prop_data_path +" Driver has been added."
+            self.report({'INFO'},msg)
         else:
-            if self.get_prop_object(context,self.prop_data_path) != None:
-                prop_type = self.get_prop_object(context,self.prop_data_path)[1]
-                if prop_type in ["MODIFIER_PROPERTY","RENDER_PROPERTY"]:
-                    data_path = self.prop_data_path.split(".")[1]
-                    curve = self.get_prop_object(context,self.prop_data_path)[0].driver_add(data_path)    
-                else:    
-                    curve = self.get_prop_object(context,self.prop_data_path)[0].driver_add(self.prop_data_path)
-            else:
-                curve = None
+            msg = self.prop_data_path +" Property has not been found."
+            self.report({'WARNING'},msg)
         
-        curves = [curve]
-        if type(curve) == list:
-            curves = curve
-            
-        for curve in curves:
-            if curve != None:
-                if len(curve.driver.variables) < 1:
-                    curve_var = curve.driver.variables.new()
-                else:
-                    curve_var = curve.driver.variables[0]
-                
-                if len(curve.modifiers) > 0:
-                    curve.modifiers.remove(curve.modifiers[0])
-                curve.driver.type = "SUM"
-                curve_var.type = "TRANSFORMS"
-                curve_var.targets[0].id = bpy.context.active_object
-                curve_var.targets[0].bone_target = bpy.context.active_pose_bone.name
-                curve_var.targets[0].transform_space = self.space
-                curve_var.targets[0].transform_type = self.type
-                
-                if self.type in ["ROT_X","ROT_Y","ROT_Z"]:
-                    min_value = radians(self.min_value)
-                    max_value = radians(self.max_value)
-                else:
-                    min_value = self.min_value
-                    max_value = self.max_value
-                
-                delete_len = 0
-                for point in curve.keyframe_points:
-                    delete_len += 1
-                for i in range(delete_len):    
-                    curve.keyframe_points.remove(curve.keyframe_points[0])
-                
-                point_a = curve.keyframe_points.insert(min_value,self.prop_min_value)
-                point_a.interpolation = "LINEAR"
-                
-                point_b = curve.keyframe_points.insert(max_value,self.prop_max_value)
-                point_b.interpolation = "LINEAR"
-            else:
-                msg = "No Property found to add a Driver for, or Property is not supported."
-                self.report({'INFO'},msg)
-                return {'FINISHED'}
-        
-        msg = "Shape: "+ self.shape_name +" constraint to Bone: " + context.active_pose_bone.name
-        self.report({'INFO'},msg)
         return {'FINISHED'}
     
     
@@ -337,30 +399,22 @@ class CreateDriverConstraint(bpy.types.Operator):
     def invoke(self, context, event):
         wm = context.window_manager 
         
+        if len(context.selected_objects) > 1:
+            obj = context.selected_objects[1]
+        else:
+            obj = context.selected_objects[0]
+        
         if wm.clipboard != "":
-            if self.get_prop_object(context,wm.clipboard) != None:
+            if get_prop_object(self,context,wm.clipboard,obj) != None:
                 self.prop_data_path = wm.clipboard
-                self.property_type = self.get_prop_object(context,wm.clipboard)[1]
+                self.property_type = get_prop_object(self,context,wm.clipboard,obj)[1]
 
-                if self.get_prop_object(context,wm.clipboard)[1] == "SHAPEKEY_PROPERTY":
+                if get_prop_object(self,context,wm.clipboard,obj)[1] == "SHAPEKEY_PROPERTY":
                     shape_name = wm.clipboard.split('"')[1]
                     self.shape_name = shape_name
             else:
-                self.prop_data_path = "OBJECT_PROPERTY"  
-                    
-                
-        
-#        if len(context.selected_objects) != 2:
-#            self.report({'WARNING'},'Select a Mesh Object and then a Pose Bone')
-#            return{'FINISHED'}
-#        
-#        if context.selected_objects[0].type != "ARMATURE":
-#            self.report({'WARNING'},'Select a Mesh Object and then a Pose Bone')
-#            return{'FINISHED'}
-#        
-#        if context.selected_objects[1].type != "MESH":
-#            self.report({'WARNING'},'Select a Mesh Object and then a Pose Bone')
-#            return{'FINISHED'}
+                #self.prop_data_path = ""
+                self.property_type = "OBJECT_PROPERTY"  
         
         if context.active_pose_bone == None:
             self.report({'WARNING'},'Select a Mesh Object and then a Pose Bone')
