@@ -22,7 +22,7 @@ bl_info = {
     "name": "Driver to Bone Constraint",
     "description": "This Operator lets you create a shape driver constraint to a bone with one single dialog operator. Quick and easy.",
     "author": "Andreas Esau",
-    "version": (1, 2, 0),
+    "version": (1, 2, 1),
     "blender": (2, 77, 0),
     "location": "Operator Search -> Driver Constraint",
     "warning": "This addon is still in development.",
@@ -50,14 +50,12 @@ import traceback
 
 def add_to_specials(self,context):
     if len(bpy.context.selected_objects) > 0:
-        #if bpy.context.selected_objects[1].type == "MESH":
         self.layout.operator_context = "INVOKE_DEFAULT"
         self.layout.separator()
         op = self.layout.operator("object.create_driver_constraint",text="Driver Constraint",icon="DRIVER")
 
 def add_pose_tools(self,context):
     if len(bpy.context.selected_objects) > 0:
-        #if bpy.context.selected_objects[1].type == "MESH":
         self.layout.operator_context = "INVOKE_DEFAULT"
         self.layout.separator()
         self.layout.label("Shapekey Tools:")
