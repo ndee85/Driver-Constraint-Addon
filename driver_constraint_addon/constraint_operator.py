@@ -84,7 +84,7 @@ def get_prop_object(self,context,prop_name,obj):
         if len(prop_name.split('"')) > 3:
             bone_name = prop_name.split('"')[1]
             const_name = prop_name.split('"')[3]
-            if bone_name in obj.pose.bones and const_name in obj.pose.bones[bone_name].constraints:
+            if hasattr(obj.pose,"bones") and bone_name in obj.pose.bones and const_name in obj.pose.bones[bone_name].constraints:
                 return obj.pose.bones[bone_name].constraints[const_name], "BONE_CONSTRAINT_PROPERTY"
     
     ### return if propert is found in object constraint
