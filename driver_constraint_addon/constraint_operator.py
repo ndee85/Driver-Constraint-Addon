@@ -112,7 +112,11 @@ class CreateDriverConstraint(bpy.types.Operator):
         i=0
         
         if len(context.selected_objects) > 1:
-            obj = context.selected_objects[1]
+            obj = None
+            for obj2 in context.selected_objects:
+                if obj2 != context.scene.objects.active:
+                    obj = obj2
+                    break
         else:
             obj = context.selected_objects[0]
         shape_keys = None
@@ -133,7 +137,11 @@ class CreateDriverConstraint(bpy.types.Operator):
         wm = context.window_manager
         if hasattr(self,"property_type") and self.prop_data_path != "":
             if len(context.selected_objects) > 1:
-                obj = context.selected_objects[1]
+                obj = None
+                for obj2 in context.selected_objects:
+                    if obj2 != context.scene.objects.active:
+                        obj = obj2
+                        break
             else:
                 obj = context.selected_objects[0]
             
@@ -145,7 +153,11 @@ class CreateDriverConstraint(bpy.types.Operator):
     
     def get_property_type_items(self,context):
         if len(context.selected_objects) > 1:
-            obj = context.selected_objects[1]
+            obj = None
+            for obj2 in context.selected_objects:
+                if obj2 != context.scene.objects.active:
+                    obj = obj2
+                    break
         else:
             obj = context.selected_objects[0]
         
@@ -307,7 +319,11 @@ class CreateDriverConstraint(bpy.types.Operator):
         context = bpy.context
         scene = context.scene
         if len(context.selected_objects) > 1:
-            obj = context.selected_objects[1]
+            obj = None
+            for obj2 in context.selected_objects:
+                if obj2 != context.scene.objects.active:
+                    obj = obj2
+                    break
         else:
             obj = context.selected_objects[0]    
         
@@ -400,7 +416,11 @@ class CreateDriverConstraint(bpy.types.Operator):
         wm = context.window_manager 
         
         if len(context.selected_objects) > 1:
-            obj = context.selected_objects[1]
+            obj = None
+            for obj2 in context.selected_objects:
+                if obj2 != context.scene.objects.active:
+                    obj = obj2
+                    break
         else:
             obj = context.selected_objects[0]
         

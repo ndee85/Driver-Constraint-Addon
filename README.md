@@ -3,18 +3,18 @@ This addon makes constraining shapekey driver to bones super easy.
 
 #Usage
 - Install the addon in the user preferences.
-- create some shapekeys for your meshobject
+- rightclick on property -> copy datapath
 - select the meshobject, than select a bone in posemode
-- open the operator search with space
+- open the operator search with space or press "W"
 - type in "Driver Constraint" and run the operator
 - Set the all values and apply
-- Thats it, your shape now can be driven by the bone
+- Thats it, your property now can be driven by the bone
 
 Here is a small video presentation:
 [Youtube Video](https://youtu.be/OV0gcfXQgAQ)
 
 #Download
-[Driver Constraint v1.2.1](releases/Driver_Constraint_v1.2.1.zip?raw=true)
+[Driver Constraint v1.2.1](releases/Driver_Constraint_v1.2.2.zip?raw=true)
 
 #Donate
 You like this addon and want to thank me. This could be a way ;-)
