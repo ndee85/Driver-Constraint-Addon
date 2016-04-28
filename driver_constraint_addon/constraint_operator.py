@@ -54,6 +54,8 @@ def get_prop_object(self,context,prop_name,obj):
         shape_name = prop_name.split('"')[1]
         if shape_name in shape_keys.key_blocks:
             return shape_keys, "SHAPEKEY_PROPERTY"
+    if hasattr(shape_keys,prop_name):
+        return shape_keys, "SHAPEKEY_PROPERTY"
     
     ### return if propert is found in bone
     if obj.type == "ARMATURE" and '"' in prop_name and "bones" in prop_name:
@@ -222,14 +224,9 @@ class CreateDriverConstraint(bpy.types.Operator):
         row.label(text="Get Limits")
         row.prop(self,"get_limits_auto",text="")
         
-        if self.property_type == "SHAPEKEY_PROPERTY":
-            row = layout.row()
-            row.label(text="Shape")
-            row.prop(self,"shape_name",text="")
-        else:
-            row = layout.row()
-            row.label(text="Property Data Path")
-            row.prop(self,"prop_data_path",text="")
+        row = layout.row()
+        row.label(text="Property Data Path")
+        row.prop(self,"prop_data_path",text="")
         
         row = layout.row()
         row.label(text="Transform Type")
@@ -246,13 +243,12 @@ class CreateDriverConstraint(bpy.types.Operator):
         col.prop(self,"min_value",text="Min Value")
         col.prop(self,"max_value",text="Max Value")
         
-        if self.property_type != "SHAPEKEY_PROPERTY":
-            row = layout.row()
-            col = row.column()
-            col.label(text="Property Limits")
-            col = row.column(align=True)
-            col.prop(self,"prop_min_value",text="Min Value")
-            col.prop(self,"prop_max_value",text="Max Value")
+        row = layout.row()
+        col = row.column()
+        col.label(text="Property Limits")
+        col = row.column(align=True)
+        col.prop(self,"prop_min_value",text="Min Value")
+        col.prop(self,"prop_max_value",text="Max Value")
             
     
     
@@ -330,35 +326,23 @@ class CreateDriverConstraint(bpy.types.Operator):
         driver_found = False
         for obj in context.selected_objects:
             if obj != context.scene.objects.active or len(context.selected_objects) == 1:
-            
-                if self.property_type == "SHAPEKEY_PROPERTY":
-                    shape = None
-                    if self.shape_name != "CREATE_NEW_SHAPE":
-                        shape = obj.data.shape_keys.key_blocks[self.shape_name]
-                    else:
-                        if obj.data.shape_keys == None:
-                            obj.shape_key_add(name="Basis",from_mix=False)
-                        shape = obj.data.shape_keys.key_blocks[self.create_new_shape(context,obj)]
-                    
-                    curve = shape.driver_add("value")
+                if get_prop_object(self,context,self.prop_data_path,obj) != None:
+                    prop_type = get_prop_object(self,context,self.prop_data_path,obj)[1]
+                    data = get_prop_object(self,context,self.prop_data_path,obj)[0]
+                    if data == obj and self.property_type == "OBECT_DATA_PROPERTY":
+                        data = data.data
+                    if prop_type in ["MODIFIER_PROPERTY","BONE_PROPERTY","OBJECT_CONSTRAINT_PROPERTY"]:
+                        data_path = self.prop_data_path.split(".")[1]
+                        curve = data.driver_add(data_path)    
+                    elif prop_type in ["BONE_CONSTRAINT_PROPERTY"]  :  
+                        string_elements = self.prop_data_path.split(".")
+                        data_path = string_elements[len(string_elements)-1]
+                        
+                        curve = data.driver_add(data_path)    
+                    else:    
+                        curve = data.driver_add(self.prop_data_path)
                 else:
-                    if get_prop_object(self,context,self.prop_data_path,obj) != None:
-                        prop_type = get_prop_object(self,context,self.prop_data_path,obj)[1]
-                        data = get_prop_object(self,context,self.prop_data_path,obj)[0]
-                        if data == obj and self.property_type == "OBECT_DATA_PROPERTY":
-                            data = data.data
-                        if prop_type in ["MODIFIER_PROPERTY","BONE_PROPERTY","OBJECT_CONSTRAINT_PROPERTY"]:
-                            data_path = self.prop_data_path.split(".")[1]
-                            curve = data.driver_add(data_path)    
-                        elif prop_type in ["BONE_CONSTRAINT_PROPERTY"]  :  
-                            string_elements = self.prop_data_path.split(".")
-                            data_path = string_elements[len(string_elements)-1]
-                            
-                            curve = data.driver_add(data_path)    
-                        else:    
-                            curve = data.driver_add(self.prop_data_path)
-                    else:
-                        curve = None
+                    curve = None
                 
                 curves = [curve]
                 if type(curve) == list:
@@ -428,12 +412,7 @@ class CreateDriverConstraint(bpy.types.Operator):
             if get_prop_object(self,context,wm.clipboard,obj) != None:
                 self.prop_data_path = wm.clipboard
                 self.property_type = get_prop_object(self,context,wm.clipboard,obj)[1]
-
-                if get_prop_object(self,context,wm.clipboard,obj)[1] == "SHAPEKEY_PROPERTY":
-                    shape_name = wm.clipboard.split('"')[1]
-                    self.shape_name = shape_name
             else:
-                #self.prop_data_path = ""
                 self.property_type = "OBJECT_PROPERTY"  
         
         if context.active_pose_bone == None:
@@ -444,4 +423,3 @@ class CreateDriverConstraint(bpy.types.Operator):
             self.set_defaults(context)
                 
         return wm.invoke_props_dialog(self)
-
