@@ -314,7 +314,8 @@ class CreateDriverConstraint(bpy.types.Operator):
                 if l[i] == m:
                     self.min_value = 0.0
                     self.max_value = self.driver.location[i]
-                    self.type = type[i]        
+                    self.type = type[i] 
+                    break       
             return "LIMIT_LOCATION"
         
         ### set rotation
@@ -334,19 +335,23 @@ class CreateDriverConstraint(bpy.types.Operator):
                     self.min_value = 0.0
                     self.max_value = degrees(driver_rotation[i])
                     self.type = type[i]
+                    break
             return "LIMIT_ROTATION"
         
         ### set scale
         if self.driver.scale != Vector((1,1,1)):
-            l = [abs(self.driver.location.x),abs(self.driver.location.y),abs(self.driver.location.z)]
+            l = [abs(self.driver.scale.x),abs(self.driver.scale.y),abs(self.driver.scale.z)]
+            l_delta = [abs(1.0-self.driver.scale.x),abs(1.0-self.driver.scale.y),abs(1.0-self.driver.scale.z)]
+            m_delta = max(l_delta)
             m = max(l)
             type = ["SCALE_X","SCALE_Y","SCALE_Z"]
             
             for i,value in enumerate(l):
-                if l[i] == m:
+                if l_delta[i] == m_delta:
                     self.min_value = 1.0
-                    self.max_value = self.driver.scale[i]
+                    self.max_value = l[i]
                     self.type = type[i]
+                    break
             return "LIMIT_SCALE"
 
     
