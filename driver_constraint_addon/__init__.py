@@ -53,13 +53,21 @@ def add_to_specials(self,context):
         self.layout.operator_context = "INVOKE_DEFAULT"
         self.layout.separator()
         op = self.layout.operator("object.create_driver_constraint",text="Driver Constraint",icon="DRIVER")
-
+        op.mode = "DRIVER"
+        if context.active_object.type == "ARMATURE" and len(context.selected_pose_bones) > 1:
+            op = self.layout.operator("object.create_driver_constraint",text="Action Constraint",icon="ACTION")
+            op.mode = "ACTION"
+        
 def add_pose_tools(self,context):
     if len(bpy.context.selected_objects) > 0:
         self.layout.operator_context = "INVOKE_DEFAULT"
         self.layout.separator()
         self.layout.label("Driver Tools:")
         op = self.layout.operator("object.create_driver_constraint",text="Driver Constraint",icon="DRIVER")
+        op.mode = "DRIVER"
+        if context.active_object.type == "ARMATURE" and len(context.selected_pose_bones) > 1:
+            op = self.layout.operator("object.create_driver_constraint",text="Action Constraint",icon="ACTION")
+            op.mode = "ACTION"
 
 def register():
     try: bpy.utils.register_module(__name__)
