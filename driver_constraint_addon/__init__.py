@@ -22,7 +22,7 @@ bl_info = {
     "name": "Driver to Bone Constraint",
     "description": "This Operator lets you create a shape driver constraint to a bone with one single dialog operator. Quick and easy.",
     "author": "Andreas Esau",
-    "version": (1, 2, 5Alpha),
+    "version": (1, 2, 5,"Alpha"),
     "blender": (2, 77, 0),
     "location": "Operator Search -> Driver Constraint",
     "warning": "This addon is still in development.",
