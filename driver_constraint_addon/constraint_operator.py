@@ -101,12 +101,19 @@ def get_prop_object(self,context,prop_name,obj):
             if hasattr(obj.pose,"bones") and bone_name in obj.pose.bones and const_name in obj.pose.bones[bone_name].constraints:
                 return obj.pose.bones[bone_name].constraints[const_name], "BONE_CONSTRAINT_PROPERTY"
     
-    ### return if property is found in object constraint
+    ### return if property is found in object constöraint
     if '"' in prop_name and "constraint" in prop_name:
         if len(prop_name.split('"')) == 3:
             const_name = prop_name.split('"')[1]
             if const_name in obj.constraints:
                 return obj.constraints[const_name], "OBJECT_CONSTRAINT_PROPERTY"
+
+def get_action_length(action):
+    action_length = 0
+    for fcurve in action.fcurves:
+        length = fcurve.keyframe_points[len(fcurve.keyframe_points)-1].co[0]
+        action_length = max(action_length,length)
+    return action_length
 
 class CreateDriverConstraint(bpy.types.Operator):
     #"""This Operator creates a driver for a shape and connects it to a posebone transformation"""
@@ -165,6 +172,26 @@ class CreateDriverConstraint(bpy.types.Operator):
                 self.prop_data_path = ""    
  
     
+    def get_actions(self,context):
+        ACTIONS = []
+        for i,action in enumerate(bpy.data.actions):
+            ACTIONS.append((action.name,action.name,action.name,"ACTION",i))
+        return ACTIONS
+    
+    def get_action_constraints(self,context):
+        action_names = []
+        ACTIONS = []
+        i = 0
+        for bone in context.selected_pose_bones:
+            for const in bone.constraints:
+                if const.name not in action_names:
+                    action_names.append(const.name)
+                    ACTIONS.append((const.name,const.name,const.name,"ACTION",i))
+                    i += 1
+        ACTIONS.append(("ALL_ACTIONS","All Actions","All Actions","ACTION",i))            
+        return ACTIONS            
+                    
+    
     def get_property_type_items(self,context):
         if len(context.selected_objects) > 1:
             obj = None
@@ -205,6 +232,15 @@ class CreateDriverConstraint(bpy.types.Operator):
         
         self.prop_min_value = val2
         self.prop_max_value = val1    
+    
+    
+    
+    def get_animation_length(self,context):
+        action = bpy.data.actions[self.action]
+        self.action_frame_end = get_action_length(action)
+    
+    
+    mode = bpy.props.EnumProperty(name="Operator Mode",items=(("DRIVER","Driver","Driver"),("ACTION","Action","Action")))
         
     property_type = bpy.props.EnumProperty(name = "Mode",items=get_property_type_items, description="Set the space the bone is transformed in. Local Space recommended.")
     
@@ -223,9 +259,11 @@ class CreateDriverConstraint(bpy.types.Operator):
     type_values.append(("SCALE_X","X Scale","X Scale","None",6))
     type_values.append(("SCALE_Y","Y Scale","Y Scale","None",7))
     type_values.append(("SCALE_Z","Z Scale","Z Scale","None",8))
-    
     type = bpy.props.EnumProperty(name = "Type",items=type_values, description="Set the type you want to be used as input to drive the shapekey.")
     
+    action = bpy.props.EnumProperty(name="Action",items=get_actions,description="Choose Action that will be driven by Bone",update=get_animation_length)
+    action_constraint = bpy.props.EnumProperty(name="Action",items=get_action_constraints,description="Choose Action Constraint that will be deleted for selected bones.")
+    action_mode = bpy.props.EnumProperty(name="Action",items=(("ADD_CONSTRAINT","Add Constraints","Add Constraints"),("DELETE_CONSTRAINT","Delete Constraints","Delete Constraints")),description="Delete or Add Action Constraints for selected bones.")
     
     space_values = []
     space_values.append(("LOCAL_SPACE","Local Space","Local Space","None",0))
@@ -235,6 +273,9 @@ class CreateDriverConstraint(bpy.types.Operator):
     
     min_value = bpy.props.FloatProperty(name = "Min Value",default=0.0, description="That value is used as 0.0 value for the shapekey.")
     max_value = bpy.props.FloatProperty(name = "Max Value",default=1.0, description="That value is used as 1.0 value for the shapekey.")
+    
+    action_frame_start = bpy.props.IntProperty(name = "Min Value",default=0, description="Value where the animations is starting.")
+    action_frame_end = bpy.props.IntProperty(name = "Max Value",default=10, description="Value where the animation is ending.")
     
     prop_min_value = bpy.props.FloatProperty(name = "Min Value",default=0.0, description="That value is used as 0.0 value for the Property.")
     prop_max_value = bpy.props.FloatProperty(name = "Max Value",default=1.0, description="That value is used as 1.0 value for the Property.")
@@ -246,62 +287,163 @@ class CreateDriverConstraint(bpy.types.Operator):
     limit_type = None   
     
     def draw(self,context):
-        layout = self.layout
-        
-        row = layout.row()
-        row.label(text="Property Type")
-        row.prop(self,"property_type",text="")
-        
-        row = layout.row()
-        row.label(text="Get Driver Limits")
-        row.prop(self,"get_limits_auto",text="")
-        
-        row = layout.row()
-        row.label(text="Set Driver Limits")
-        row.prop(self,"set_driver_limit_constraint",text="")
-        
-        row = layout.row()
-        row.label(text="Property Data Path")
-        row.prop(self,"prop_data_path",text="")
-        
-        row = layout.row()
-        row.label(text="Transform Type")
-        row.prop(self,"type",text="")
-        
-        row = layout.row()
-        row.label(text="Space")
-        row.prop(self,"space",text="")
-        
-        row = layout.row()
-        col = row.column()
-        col.label(text="Driver Limits")
-        
-        row1 = row.row(align=True)
-        row1.scale_x = 0.9
-        col1 = row1.column(align=True)
-        col1.prop(self,"min_value",text="Min Value")
-        col1.prop(self,"max_value",text="Max Value")
-        
-        col2 = row1.column(align=True)
-        col2.scale_y = 2.0
-        col2.prop(self,"flip_driver_limits",text="",toggle=True,icon="ARROW_LEFTRIGHT")
-        
-        row = layout.row()
-        col = row.column()
-        col.label(text="Property Limits")
-        
-        row1 = row.row(align=True)
-        row1.scale_x = 0.9
-        col1 = row1.column(align=True)
-        col1.prop(self,"prop_min_value",text="Min Value")
-        col1.prop(self,"prop_max_value",text="Max Value")
+        if self.mode == "DRIVER":
+            layout = self.layout
             
-        col2 = row1.column(align=True)
-        col2.scale_y = 2.0
-        col2.prop(self,"flip_property_limits",text="",toggle=True,icon="ARROW_LEFTRIGHT")
+            row = layout.row()
+            row.label(text="Property Type")
+            row.prop(self,"property_type",text="")
+            
+            row = layout.row()
+            row.label(text="Get Driver Limits")
+            row.prop(self,"get_limits_auto",text="")
+            
+            row = layout.row()
+            row.label(text="Set Driver Limits")
+            row.prop(self,"set_driver_limit_constraint",text="")
+            
+            row = layout.row()
+            row.label(text="Property Data Path")
+            row.prop(self,"prop_data_path",text="")
+            
+            row = layout.row()
+            row.label(text="Transform Type")
+            row.prop(self,"type",text="")
+            
+            row = layout.row()
+            row.label(text="Space")
+            row.prop(self,"space",text="")
+            
+            row = layout.row()
+            col = row.column()
+            col.label(text="Driver Limits")
+            
+            row1 = row.row(align=True)
+            row1.scale_x = 0.9
+            col1 = row1.column(align=True)
+            col1.prop(self,"min_value",text="Min Value")
+            col1.prop(self,"max_value",text="Max Value")
+            
+            col2 = row1.column(align=True)
+            col2.scale_y = 2.0
+            col2.prop(self,"flip_driver_limits",text="",toggle=True,icon="ARROW_LEFTRIGHT")
+            
+            row = layout.row()
+            col = row.column()
+            col.label(text="Property Limits")
+            
+            row1 = row.row(align=True)
+            row1.scale_x = 0.9
+            col1 = row1.column(align=True)
+            col1.prop(self,"prop_min_value",text="Min Value")
+            col1.prop(self,"prop_max_value",text="Max Value")
+                
+            col2 = row1.column(align=True)
+            col2.scale_y = 2.0
+            col2.prop(self,"flip_property_limits",text="",toggle=True,icon="ARROW_LEFTRIGHT")
+        elif self.mode == "ACTION":
+            layout = self.layout
+            col = layout.row()
+            col.prop(self,"action_mode",expand=True)
+            if self.action_mode == "ADD_CONSTRAINT":
+                col = layout.column()
+                row = layout.row()
+                row.label(text="Action")
+                row.prop(self,"action",text="")
+                
+                
+                row = layout.row()
+                row.label(text="Transform Type")
+                row.prop(self,"type",text="")
+                
+                row = layout.row()
+                row.label(text="Space")
+                row.prop(self,"space",text="")
+                
+                row = layout.row()
+                col = row.column()
+                col.label(text="Property Limits")
+                
+                
+                row = layout.row()
+                row1 = row.row(align=True)
+                row1.scale_x = 0.9
+                col1 = row1.column(align=True)
+                col1.prop(self,"min_value",text="Min Value")
+                col1.prop(self,"max_value",text="Max Value")
+                
+                row = layout.row()
+                col = row.column()
+                col.label(text="Action Range")
+                
+                row = layout.row()
+                row1 = row.row(align=True)
+                row1.scale_x = 0.9
+                col1 = row1.column(align=True)
+                col1.prop(self,"action_frame_start",text="Start")
+                col1.prop(self,"action_frame_end",text="End")
+            elif self.action_mode == "DELETE_CONSTRAINT":
+                col = layout.column()
+                row = layout.row()
+                row.label(text="Action")
+                row.prop(self,"action_constraint",text="")  
         
     
-    
+    def create_actions_constraints(self,context):
+        if self.action_mode == "ADD_CONSTRAINT":
+            for bone in context.selected_pose_bones:
+                if context.active_pose_bone != bone:
+#                    const = None
+#                    for c in bone.constraints:
+#                        if c.action.name == self.action:
+#                            const = c
+#                    if const == None:        
+                    const = bone.constraints.new("ACTION")
+                    if "LOCAL" in self.space:
+                        const.target_space = "LOCAL"
+                    elif "WORLD" in self.space:
+                        const.target_space = "WORLD"
+                    const.target = context.active_object
+                    const.subtarget = context.active_pose_bone.name 
+                    
+                    
+                    if self.type == "LOC_X":
+                        const.transform_channel = "LOCATION_X"
+                    elif self.type == "LOC_Y":
+                        const.transform_channel = "LOCATION_Y"
+                    elif self.type == "LOC_Z":
+                        const.transform_channel = "LOCATION_Z"
+                    elif self.type == "ROT_X":
+                        const.transform_channel = "ROTATION_X"
+                    elif self.type == "ROT_Y":
+                        const.transform_channel = "ROTATION_Y"
+                    elif self.type == "ROT_Z":
+                        const.transform_channel = "ROTATION_Z"
+                    else:
+                        const.transform_channel = self.type    
+                    
+                    
+                    const.min = self.min_value
+                    const.max = self.max_value
+                    const.frame_start = self.action_frame_start
+                    const.frame_end = self.action_frame_end
+                    const.action = bpy.data.actions[self.action]
+            bpy.ops.ed.undo_push(message="Action Constraints generated.")
+            self.report({'INFO'},"Action constraints generated.")
+        elif self.action_mode == "DELETE_CONSTRAINT":
+            #print(self.action_constraint)
+            for bone in context.selected_pose_bones:
+                for const in bone.constraints:
+                    print(self.action_constraint)
+                    if (const.name == self.action_constraint):# or (self.action_constraint == "ALL_ACTIONS"):
+                        #print(const.name)
+                        #bone.constraints.remove(const)
+                        #if self.action_constraint != "ALL_ACTIONS":
+                        #    break
+                        pass
+            bpy.ops.ed.undo_push(message="Action Constraints deleted.")
+            self.report({'INFO'},"Action constraints deleted.")            
+               
     
     def set_defaults(self,context):
         ### set location
@@ -361,6 +503,14 @@ class CreateDriverConstraint(bpy.types.Operator):
         scene = context.scene
         active_object = context.active_object
         
+        if self.mode == "DRIVER":
+            self.create_property_driver(wm,context,scene,active_object)
+        elif self.mode == "ACTION":
+            self.create_actions_constraints(context)
+        
+        return {'FINISHED'}
+        
+    def create_property_driver(self,wm,context,scene,active_object):
         if len(context.selected_objects) > 1:
             obj = None
             for obj2 in context.selected_objects:
@@ -452,13 +602,10 @@ class CreateDriverConstraint(bpy.types.Operator):
         else:
             msg = self.prop_data_path +" Property has not been found."
             self.report({'WARNING'},msg)
-        
-        return {'FINISHED'}
-    
-    
+
     def set_limit_constraint(self,context):
         if self.set_driver_limit_constraint:
-            print(self.driver,">>>>>",self.limit_type)
+            #print(self.driver,">>>>>",self.limit_type)
             if self.limit_type != None:
                 if "Driver Limit" in self.driver.constraints:
                     self.driver.constraints.remove(self.driver.constraints["Driver Limit"])    
@@ -535,5 +682,10 @@ class CreateDriverConstraint(bpy.types.Operator):
         
         if self.get_limits_auto:
             self.limit_type = self.set_defaults(context)
+        
+        
+        if self.action in bpy.data.actions:
+            action = bpy.data.actions[self.action]
+            self.action_frame_end = get_action_length(action)
                 
         return wm.invoke_props_dialog(self)
