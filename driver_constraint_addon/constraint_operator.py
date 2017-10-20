@@ -249,6 +249,13 @@ class CreateDriverConstraint(bpy.types.Operator):
     shape_name = bpy.props.EnumProperty(items = get_shapes, name = "Shape", description="Select the shape you want to add a driver to.")
     get_limits_auto = bpy.props.BoolProperty(name = "Get Limits",default=True,description="This will set the limits based on the bone location/rotation/scale automatically.")
     
+    
+    int_type_values = []
+    int_type_values.append(("LINEAR","Linear","Linear","IPO_LINEAR",0))
+    int_type_values.append(("CONSTANT","Constant","Constant","IPO_CONSTANT",1))
+    int_type_values.append(("BEZIER","Bezier","Bezier","IPO_BEZIER",2))
+    interpolation_type = bpy.props.EnumProperty(name = "Interpolation Type",items=int_type_values, description="Defines the transition from one value to another.")
+    
     type_values = []
     type_values.append(("LOC_X","X Location","X Location","None",0))
     type_values.append(("LOC_Y","Y Location","Y Location","None",1))
@@ -327,6 +334,10 @@ class CreateDriverConstraint(bpy.types.Operator):
             col2 = row1.column(align=True)
             col2.scale_y = 2.0
             col2.prop(self,"flip_driver_limits",text="",toggle=True,icon="ARROW_LEFTRIGHT")
+            
+            row = layout.row()
+            row.label(text="Interpolation Type")
+            row.prop(self,"interpolation_type",text="")
             
             row = layout.row()
             col = row.column()
@@ -588,10 +599,10 @@ class CreateDriverConstraint(bpy.types.Operator):
                             curve.keyframe_points.remove(curve.keyframe_points[0])
                         
                         point_a = curve.keyframe_points.insert(min_value,self.prop_min_value)
-                        point_a.interpolation = "LINEAR"
+                        point_a.interpolation = self.interpolation_type
                         
                         point_b = curve.keyframe_points.insert(max_value,self.prop_max_value)
-                        point_b.interpolation = "LINEAR"
+                        point_b.interpolation = self.interpolation_type
         
 
         self.set_limit_constraint(context)        
