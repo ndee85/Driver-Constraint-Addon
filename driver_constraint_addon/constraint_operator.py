@@ -56,8 +56,18 @@ def get_prop_object(self,context,prop_name,obj):
     if hasattr(shape_keys,prop_name):
         return shape_keys, "SHAPEKEY_PROPERTY"
     
+    
+    ### return if property is found in bone constraint
+    if '"' in prop_name:
+        if len(prop_name.split('"')) > 3:
+            bone_name = prop_name.split('"')[1]
+            const_name = prop_name.split('"')[3]
+            if hasattr(obj.pose,"bones") and bone_name in obj.pose.bones and const_name in obj.pose.bones[bone_name].constraints:
+                return obj.pose.bones[bone_name].constraints[const_name], "BONE_CONSTRAINT_PROPERTY"
+            
     ### return if property is found in bone
     if obj.type == "ARMATURE" and '"' in prop_name and "bones" in prop_name:
+        
         if len(prop_name.split('"')) >= 3:
             bone_name = prop_name.split('"')[1]
             if bone_name in obj.data.bones:
@@ -92,14 +102,6 @@ def get_prop_object(self,context,prop_name,obj):
     ### return if property is found in texture
     if tex != None and hasattr(tex,prop_name):
         return tex, "TEXTURE_PROPERTY"
-    
-    ### return if property is found in bone constraint
-    if '"' in prop_name:
-        if len(prop_name.split('"')) > 3:
-            bone_name = prop_name.split('"')[1]
-            const_name = prop_name.split('"')[3]
-            if hasattr(obj.pose,"bones") and bone_name in obj.pose.bones and const_name in obj.pose.bones[bone_name].constraints:
-                return obj.pose.bones[bone_name].constraints[const_name], "BONE_CONSTRAINT_PROPERTY"
     
     ### return if property is found in object constöraint
     if '"' in prop_name and "constraint" in prop_name:
@@ -442,12 +444,9 @@ class CreateDriverConstraint(bpy.types.Operator):
             bpy.ops.ed.undo_push(message="Action Constraints generated.")
             self.report({'INFO'},"Action constraints generated.")
         elif self.action_mode == "DELETE_CONSTRAINT":
-            #print(self.action_constraint)
             for bone in context.selected_pose_bones:
                 for const in bone.constraints:
-                    print(self.action_constraint)
                     if (const.name == self.action_constraint):# or (self.action_constraint == "ALL_ACTIONS"):
-                        #print(const.name)
                         #bone.constraints.remove(const)
                         #if self.action_constraint != "ALL_ACTIONS":
                         #    break
@@ -616,7 +615,6 @@ class CreateDriverConstraint(bpy.types.Operator):
 
     def set_limit_constraint(self,context):
         if self.set_driver_limit_constraint:
-            #print(self.driver,">>>>>",self.limit_type)
             if self.limit_type != None:
                 if "Driver Limit" in self.driver.constraints:
                     self.driver.constraints.remove(self.driver.constraints["Driver Limit"])    
