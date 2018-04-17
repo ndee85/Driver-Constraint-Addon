@@ -47,6 +47,13 @@ def get_prop_object(self,context,prop_name,obj):
         if modifier_name in obj.modifiers:
             modifier = obj.modifiers[modifier_name]
             return modifier, "MODIFIER_PROPERTY"
+        
+    ### return if property is found in texture slots    
+    if "texture_slots" in prop_name and "[" in prop_name:
+        index = int ( prop_name[prop_name.find("[")+1:prop_name.find("]")])
+        texture_slot = mat.texture_slots[index]
+        return texture_slot, "TEXTURE_PROPERTY"
+            
     
     ### return if property is found in shapekeys    
     if shape_keys != None and '"' in prop_name:
@@ -98,6 +105,7 @@ def get_prop_object(self,context,prop_name,obj):
     ### return if property is found in material
     if mat != None and hasattr(mat,prop_name):
         return mat, "MATERIAL_PROPERTY"
+        
     
     ### return if property is found in texture
     if tex != None and hasattr(tex,prop_name):
@@ -553,7 +561,10 @@ class CreateDriverConstraint(bpy.types.Operator):
                         string_elements = self.prop_data_path.split(".")
                         data_path = string_elements[len(string_elements)-1]
                         
-                        curve = data.driver_add(data_path)    
+                        curve = data.driver_add(data_path)
+                    elif "texture_slots" in self.prop_data_path and "[" in self.prop_data_path:
+                        data_path = self.prop_data_path.split(".")[1]
+                        curve = data.driver_add(data_path)
                     else:    
                         curve = data.driver_add(self.prop_data_path)
                 else:
