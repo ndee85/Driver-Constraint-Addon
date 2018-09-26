@@ -13,8 +13,6 @@ This addon makes constraining shapekey driver to bones super easy.
 Here is a small video presentation:
 [Youtube Video](https://youtu.be/OV0gcfXQgAQ)
 
-#Download
-[Driver Constraint v1.2.4](releases/Driver_Constraint_v1.2.4.zip?raw=true)
 
 #Donate
 You like this addon and want to thank me. This could be a way ;-)
