@@ -34,7 +34,7 @@ def get_prop_object(self,context,prop_name,obj):
     scene = context.scene
     render = scene.render
     
-    if obj.type == "MESH" and obj.data.shape_keys != None:
+    if obj.type in ["MESH", "CURVE"] and obj.data.shape_keys != None:
         shape_keys = obj.data.shape_keys
                     
     if mat != None:
@@ -152,7 +152,7 @@ class CreateDriverConstraint(bpy.types.Operator):
         else:
             obj = context.selected_objects[0]
         shape_keys = None
-        if obj.type == "MESH" and obj.data.shape_keys != None:
+        if obj.type in ["MESH","CURVE"] and obj.data.shape_keys != None:
             shape_keys = obj.data.shape_keys.key_blocks
               
         if shape_keys != None:
@@ -219,9 +219,9 @@ class CreateDriverConstraint(bpy.types.Operator):
         
         items = []
         items.append(("OBJECT_PROPERTY","Object Property","Object Property","OBJECT_DATAMODE",0))
-        if obj.type == "MESH":
+        if obj.type in ["MESH","CURVE"]:
             items.append(("SHAPEKEY_PROPERTY","Shapekey Property","Shapekey Property","SHAPEKEY_DATA",1))
-            items.append(("MODIFIER_PROPERTY","Modifier Property","Modifier Property","MODIFIER",5))            
+            items.append(("MODIFIER_PROPERTY","Modifier Property","Modifier Property","MODIFIER",5))
         items.append(("OBECT_DATA_PROPERTY","Data Property","Data Property",object_data_icon,2))
         items.append(("MATERIAL_PROPERTY","Material Property","Material Property","MATERIAL",3))
         items.append(("TEXTURE_PROPERTY","Texture Property","Texture Property","TEXTURE",4))
