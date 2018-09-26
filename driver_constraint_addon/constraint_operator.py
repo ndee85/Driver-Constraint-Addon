@@ -111,7 +111,7 @@ def get_prop_object(self,context,prop_name,obj):
     if tex != None and hasattr(tex,prop_name):
         return tex, "TEXTURE_PROPERTY"
     
-    ### return if property is found in object constöraint
+    ### return if property is found in object constraint
     if '"' in prop_name and "constraint" in prop_name:
         if len(prop_name.split('"')) == 3:
             const_name = prop_name.split('"')[1]
@@ -121,8 +121,9 @@ def get_prop_object(self,context,prop_name,obj):
 def get_action_length(action):
     action_length = 0
     for fcurve in action.fcurves:
-        length = fcurve.keyframe_points[len(fcurve.keyframe_points)-1].co[0]
-        action_length = max(action_length,length)
+        if len(fcurve.keyframe_points) > 0:
+            length = fcurve.keyframe_points[len(fcurve.keyframe_points)-1].co[0]
+            action_length = max(action_length,length)
     return action_length
 
 class CreateDriverConstraint(bpy.types.Operator):
