@@ -22,8 +22,8 @@ bl_info = {
     "name": "Driver to Bone Constraint",
     "description": "This Operator lets you create a shape driver constraint to a bone with one single dialog operator. Quick and easy.",
     "author": "Andreas Esau",
-    "version": (1, 2, 5,"Alpha"),
-    "blender": (2, 77, 0),
+    "version": (2, 0, 0,"Alpha"),
+    "blender": (2, 80, 0),
     "location": "Operator Search -> Driver Constraint",
     "warning": "This addon is still in development.",
     "wiki_url": "https://github.com/ndee85/Driver-Constraint-Addon",
@@ -31,15 +31,10 @@ bl_info = {
 
 
 import bpy
-
+from . import constraint_operator
 
 # load and reload submodules
 ##################################
-
-import importlib
-from . import developer_utils
-importlib.reload(developer_utils)
-modules = developer_utils.setup_addon_modules(__path__, __name__, "bpy" in locals())
 
 
 
@@ -47,6 +42,10 @@ modules = developer_utils.setup_addon_modules(__path__, __name__, "bpy" in local
 ##################################
 
 import traceback
+
+classes = (
+    constraint_operator.DRIVER_CONSTRAINT_OT_create,
+)
 
 def add_to_specials(self,context):
     if len(bpy.context.selected_objects) > 0:
@@ -70,23 +69,20 @@ def add_pose_tools(self,context):
             op.mode = "ACTION"
 
 def register():
-    try: bpy.utils.register_module(__name__)
-    except: traceback.print_exc()
-    
-    bpy.types.VIEW3D_MT_pose_specials.append(add_to_specials)
-    bpy.types.VIEW3D_MT_object_specials.append(add_to_specials)
-    bpy.types.VIEW3D_PT_tools_posemode.append(add_pose_tools) 
-    bpy.types.VIEW3D_PT_tools_object.append(add_pose_tools) 
-    
-    print("Registered {} with {} modules".format(bl_info["name"], len(modules)))
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+    bpy.types.VIEW3D_MT_pose.append(add_to_specials)
+    bpy.types.VIEW3D_MT_object.append(add_to_specials)
+    bpy.types.VIEW3D_PT_context_properties.append(add_pose_tools)
+    # bpy.types.VIEW3D_PT_tools_object.append(add_pose_tools)
 
 def unregister():
-    try: bpy.utils.unregister_module(__name__)
-    except: traceback.print_exc()
-    
-    bpy.types.VIEW3D_MT_pose_specials.remove(add_to_specials)
-    bpy.types.VIEW3D_MT_object_specials.remove(add_to_specials)
-    bpy.types.VIEW3D_PT_tools_posemode.remove(add_pose_tools) 
-    bpy.types.VIEW3D_PT_tools_object.remove(add_pose_tools) 
-    
-    print("Unregistered {}".format(bl_info["name"]))
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
+
+    bpy.types.VIEW3D_MT_pose.remove(add_to_specials)
+    bpy.types.VIEW3D_MT_object.remove(add_to_specials)
+    bpy.types.VIEW3D_PT_context_properties.remove(add_pose_tools)
+    # bpy.types.VIEW3D_PT_tools_object.remove(add_pose_tools)
+
