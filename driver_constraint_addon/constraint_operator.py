@@ -22,21 +22,54 @@ import bpy
 from math import radians,degrees
 from mathutils import Vector,Quaternion,Euler
 
+
+def split_data_path(path):
+    elements = []
+
+    element = ""
+    dot_valid = True
+    quot_mark_open = False
+    for i, c in enumerate(path):
+        if c in ["'", '"'] and quot_mark_open == False:
+            quot_mark_open = True
+            dot_valid = False
+        elif c in ["'", '"'] and quot_mark_open == True:
+            quot_mark_open = False
+            dot_valid = True
+
+        if c != '.' or dot_valid == False:
+            element += c
+        elif c == '.' and dot_valid:
+            elements.append(element)
+            element = ""
+        if i == len(path) - 1 and element != "":
+            elements.append(element)
+            element = ""
+
+    return elements
+
 def get_property_and_path(obj, data_path):
     if "." in data_path:
-        elements = data_path.split(".")
+        elements = split_data_path(data_path) #data_path.split(".")# if "].value" not in data_path else [data_path]
         index = 0
         active_element = elements[index]
-        data = obj
-        while hasattr(data, active_element) and index <= len(elements)-2:
-            data = getattr(data, active_element)
-            index += 1
-            active_element = elements[index]
-        if hasattr(data, active_element):
-            return data, active_element
+
+        if "key_blocks" not in data_path:
+            data = obj
+            while hasattr(data, active_element) and index <= len(elements)-2:
+                data = getattr(data, active_element)
+                index += 1
+                active_element = elements[index]
+            if hasattr(data, active_element):
+                return data, active_element
         else:
-            None
-    return None
+            data = obj.data.shape_keys
+            if data != None:
+                data = data.key_blocks
+                key = data_path.split('key_blocks["')[1].split('"]')[0]
+                if key in data:
+                    return data[key], "value"
+    return None, None
 
 def get_prop_object(self,context,prop_name,obj):
     wm = context.window_manager
@@ -77,7 +110,7 @@ def get_prop_object(self,context,prop_name,obj):
             return modifier, "MODIFIER_PROPERTY"
             
     
-    ### return if property is found in shapekeys    
+    ### return if property is found in shapekeys
     if shape_keys != None and '"' in prop_name:
         shape_name = prop_name.split('"')[1]
         if shape_name in shape_keys.key_blocks:
@@ -566,7 +599,9 @@ class DRIVER_CONSTRAINT_OT_create(bpy.types.Operator):
         driver_found = False
         for obj in context.selected_objects:
             if obj != context.view_layer.objects.active or len(context.selected_objects) == 1:
-                if get_prop_object(self,context,self.prop_data_path,obj) != None:
+                curve = None
+                prop_object = get_prop_object(self,context,self.prop_data_path,obj)
+                if prop_object != None:
                     prop_type = get_prop_object(self,context,self.prop_data_path,obj)[1]
                     data = get_prop_object(self,context,self.prop_data_path,obj)[0]
                     if data == obj and self.property_type == "OBECT_DATA_PROPERTY":
@@ -592,15 +627,17 @@ class DRIVER_CONSTRAINT_OT_create(bpy.types.Operator):
                     else:
                         if "." in self.prop_data_path:
                             data, path = get_property_and_path(obj, self.prop_data_path)
-                            curve = data.driver_add(path)
+                            if path != None:
+                                curve = data.driver_add(path)
                         else:
                             curve = data.driver_add(self.prop_data_path)
                 else:
                     curve = None
-
-                curves = [curve]
-                if type(curve) == list:
-                    curves = curve
+                curves = []
+                if curve != None:
+                    curves.append(curve)
+                    if type(curve) == list:
+                        curves = curve
 
                 ### create driver fcurve which defines how the value is driven
                 for curve in curves:
